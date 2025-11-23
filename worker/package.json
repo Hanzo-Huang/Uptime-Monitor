@@ -1,7 +1,11 @@
 {
-  "name": "uptime-worker",
+  "name": "uptime-monitor-worker",
   "version": "0.0.1",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nianshu2022/Uptime-Monitor.git"
+  },
   "scripts": {
     "deploy": "wrangler deploy",
     "dev": "wrangler dev",
