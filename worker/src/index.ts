@@ -64,15 +64,15 @@ app.get('/monitors/public', async (c) => {
 app.post('/monitors', async (c) => {
   try {
     const body = await c.req.json<any>();
-    const { name, url, interval, keyword } = body;
+    const { name, url, interval, keyword, user_agent } = body;
     
     if (!name || !url) {
       return c.json({ error: 'Missing name or url' }, 400);
     }
 
     const result = await c.env.DB.prepare(
-      'INSERT INTO monitors (name, url, interval, keyword) VALUES (?, ?, ?, ?)'
-    ).bind(name, url, interval || 300, keyword || null).run();
+      'INSERT INTO monitors (name, url, interval, keyword, user_agent) VALUES (?, ?, ?, ?, ?)'
+    ).bind(name, url, interval || 300, keyword || null, user_agent || null).run();
 
     return c.json({ success: true, id: result.meta.last_row_id }, 201);
   } catch (e) {
@@ -110,7 +110,7 @@ app.get('/monitors/:id/logs', async (c) => {
 // 测试钉钉通知
 app.post('/test-alert', async (c) => {
   try {
-    const result = await sendDingTalkAlert(c.env, { name: 'Test Monitor', url: 'https://example.com' }, '这是一条测试消息，证明钉钉通知配置正确。');
+    const result = await sendDingTalkAlert(c.env, { name: 'Test Monitor', url: 'https://example.com' }, 'UP', '这是一条测试消息，用于验证 Markdown 格式是否生效。');
     return c.json({ success: true, dingtalk_response: result });
   } catch (e) {
     return c.json({ error: e.message }, 500);
@@ -167,7 +167,9 @@ async function performCheck(monitor: any, env: Bindings) {
   try {
     const response = await fetch(monitor.url, {
       method: monitor.method || 'GET',
-      headers: { 'User-Agent': 'Uptime-Monitor/1.0' },
+      headers: { 
+        'User-Agent': monitor.user_agent || 'Uptime-Monitor/1.0' 
+      },
       cf: {
         // 避免 Cloudflare 缓存，确保请求穿透
         cacheTtl: 0,
@@ -184,8 +186,7 @@ async function performCheck(monitor: any, env: Bindings) {
       // 请求成功，顺便检查一下是否需要更新域名/证书信息 (例如每 24 小时更新一次，或者从未更新过时)
       const lastInfoCheck = monitor.check_info_status ? new Date(monitor.check_info_status).getTime() : 0;
       // 24 小时 = 86400000 ms
-      // 临时改为 0，强制更新一次，确认泛域名逻辑生效后可改回
-      if (true || Date.now() - lastInfoCheck > 86400000) {
+      if (Date.now() - lastInfoCheck > 86400000) {
         // 异步执行，不阻塞主监测逻辑
         env.DB.prepare('UPDATE monitors SET check_info_status = ? WHERE id = ?').bind(new Date().toISOString(), monitor.id).run().then(() => {
            updateDomainCertInfo(env, monitor);
@@ -236,7 +237,7 @@ async function performCheck(monitor: any, env: Bindings) {
       } else {
         // 三次重试失败，确认 DOWN
         newStatus = 'DOWN';
-        await sendDingTalkAlert(env, monitor, `Monitor is DOWN: ${reason}`);
+        await sendDingTalkAlert(env, monitor, 'DOWN', `错误原因: ${reason}`);
         console.log(`Monitor ${monitor.name} is DOWN! Alert sent.`);
       }
     } else if (monitor.status === 'DOWN') {
@@ -247,7 +248,7 @@ async function performCheck(monitor: any, env: Bindings) {
     // 成功
     if (monitor.status === 'DOWN') {
       // 从 DOWN 恢复
-      await sendDingTalkAlert(env, monitor, `Monitor Recovered! Latency: ${latency}ms`);
+      await sendDingTalkAlert(env, monitor, 'UP', `响应耗时: ${latency}ms`);
       console.log(`Monitor ${monitor.name} recovered.`);
     }
     newStatus = 'UP';
@@ -266,8 +267,8 @@ async function performCheck(monitor: any, env: Bindings) {
 }
 
 // 发送钉钉机器人通知 (支持加签)
-async function sendDingTalkAlert(env: Bindings, monitor: any, message: string) {
-  // 优先从环境变量读取，如果没有则使用硬编码 (不推荐生产环境硬编码)
+async function sendDingTalkAlert(env: Bindings, monitor: any, type: 'DOWN' | 'UP', detail: string) {
+  // 优先从环境变量读取，如果没有则使用硬编码
   const accessToken = env.DINGTALK_ACCESS_TOKEN || '59f62a4b15f5fa9b7338ffaeacc5c199b537038ec79e57db681e48293cc6625d';
   const secret = env.DINGTALK_SECRET || 'SEC6243e3cced1f46b53340f22603f10fca92389f5891de46530a61ac30bc2da5c6';
   
@@ -294,10 +295,31 @@ async function sendDingTalkAlert(env: Bindings, monitor: any, message: string) {
 
   const webhookUrl = `https://oapi.dingtalk.com/robot/send?access_token=${accessToken}&timestamp=${timestamp}&sign=${signEncoded}`;
 
+  // 构建 Markdown 消息
+  const isDown = type === 'DOWN';
+  const title = isDown ? '🔴 服务故障报警' : '🟢 服务恢复通知';
+  const color = isDown ? '#ff0000' : '#008000'; // 红色或绿色
+  const time = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
+
+  const markdownText = `
+## ${title}
+
+**监控对象**: ${monitor.name}
+
+**监控地址**: [点击访问](${monitor.url})
+
+**当前状态**: <font color="${color}">${type}</font>
+
+**详细信息**: ${detail}
+
+> ⏱️ 时间: ${time}
+  `.trim();
+
   const payload = {
-    msgtype: 'text',
-    text: {
-      content: `[Uptime Monitor] 警报\n\n监控对象: ${monitor.name}\nURL: ${monitor.url}\n时间: ${new Date().toLocaleString()}\n信息: ${message}`
+    msgtype: 'markdown',
+    markdown: {
+      title: title,
+      text: markdownText
     }
   };
 

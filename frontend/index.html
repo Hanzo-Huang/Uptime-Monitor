@@ -1,35 +1,46 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>System Status</title>
     <script src="https://cdn.bootcdn.net/ajax/libs/vue/3.3.4/vue.global.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #0f172a;
-            color: #e2e8f0;
         }
         .font-mono {
             font-family: 'JetBrains Mono', monospace;
         }
-        /* 霓虹光效 */
-        .neon-green {
+        /* 霓虹光效 (Dark Mode Only) */
+        .dark .neon-green {
             box-shadow: 0 0 5px #22c55e, 0 0 10px #22c55e;
         }
-        .neon-red {
+        .dark .neon-red {
             box-shadow: 0 0 5px #ef4444, 0 0 10px #ef4444;
         }
-        /* 玻璃拟态卡片 */
-        .glass-card {
+        
+        /* 卡片样式 */
+        .status-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .dark .status-card {
             background: rgba(30, 41, 59, 0.7);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: none;
         }
+
         /* 呼吸动画 */
         @keyframes pulse-glow {
             0%, 100% { opacity: 1; }
@@ -38,101 +49,138 @@
         .animate-pulse-slow {
             animation: pulse-glow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
-        /* 进度条动画 */
-        @keyframes scanline {
-            0% { transform: translateY(-100%); }
-            100% { transform: translateY(100%); }
-        }
     </style>
 </head>
-<body class="min-h-screen flex flex-col bg-slate-900 text-slate-200 selection:bg-green-500 selection:text-black">
+<body class="min-h-screen flex flex-col bg-gray-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 transition-colors duration-300">
     <div id="app" class="container mx-auto px-4 py-12 max-w-4xl flex-1 relative">
-        <!-- 背景装饰 -->
-        <div class="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none opacity-20">
+        <!-- 背景装饰 (Dark Mode Only) -->
+        <div class="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none opacity-0 dark:opacity-20 transition-opacity duration-300">
             <div class="absolute top-[-10%] right-[-5%] w-96 h-96 bg-blue-600 rounded-full blur-3xl"></div>
             <div class="absolute bottom-[-10%] left-[-5%] w-96 h-96 bg-green-600 rounded-full blur-3xl"></div>
         </div>
 
+        <!-- 主题切换按钮 -->
+        <div class="absolute top-6 right-6 z-20">
+            <button @click="toggleTheme" class="p-2 rounded-full bg-white dark:bg-slate-800 shadow-md hover:scale-110 transition-transform duration-200 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-yellow-400">
+                <i class="fas" :class="isDark ? 'fa-sun' : 'fa-moon'"></i>
+            </button>
+        </div>
+
         <header class="text-center mb-16 relative">
-            <div class="inline-block mb-4 px-3 py-1 border border-green-500/30 rounded-full bg-green-500/10 text-green-400 text-xs font-mono tracking-wider uppercase">
+            <div class="inline-block mb-4 px-3 py-1 border border-green-500/30 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 text-xs font-mono tracking-wider uppercase">
                 <i class="fas fa-circle text-[8px] mr-2 animate-pulse"></i> System Operational
             </div>
-            <h1 class="text-5xl md:text-6xl font-bold tracking-tighter text-white mb-4" style="text-shadow: 0 0 20px rgba(255,255,255,0.1);">
+            <h1 class="text-5xl md:text-6xl font-bold tracking-tighter text-gray-900 dark:text-white mb-4 transition-colors">
                 STATUS<span class="text-green-500">.</span>PAGE
             </h1>
-            <p class="text-slate-400 max-w-lg mx-auto font-light text-lg">实时监控服务运行状态与性能指标</p>
+            <p class="text-gray-500 dark:text-slate-400 max-w-lg mx-auto font-light text-lg">实时监控服务运行状态与性能指标</p>
         </header>
 
         <!-- 整体状态概览 -->
         <div class="mb-12">
-            <div v-if="allUp" class="glass-card p-8 rounded-2xl flex flex-col items-center justify-center border-t-4 border-t-green-500 shadow-2xl relative overflow-hidden group">
+            <div v-if="allUp" class="status-card p-8 rounded-2xl flex flex-col items-center justify-center border-t-4 border-t-green-500 relative overflow-hidden group transition-all">
                 <div class="absolute inset-0 bg-green-500/5 group-hover:bg-green-500/10 transition duration-500"></div>
-                <i class="fas fa-shield-alt text-6xl text-green-500 mb-4 drop-shadow-[0_0_10px_rgba(34,197,94,0.5)]"></i>
-                <h2 class="text-2xl font-bold text-white mb-1">所有系统运行正常</h2>
-                <p class="text-slate-400 text-sm font-mono">All Systems Operational</p>
+                <i class="fas fa-shield-alt text-6xl text-green-500 mb-4 drop-shadow-md dark:drop-shadow-[0_0_10px_rgba(34,197,94,0.5)]"></i>
+                <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-1">所有系统运行正常</h2>
+                <p class="text-gray-500 dark:text-slate-400 text-sm font-mono">All Systems Operational</p>
             </div>
-            <div v-else class="glass-card p-8 rounded-2xl flex flex-col items-center justify-center border-t-4 border-t-red-500 shadow-2xl relative overflow-hidden">
+            <div v-else class="status-card p-8 rounded-2xl flex flex-col items-center justify-center border-t-4 border-t-red-500 relative overflow-hidden transition-all">
                 <div class="absolute inset-0 bg-red-500/5 animate-pulse-slow"></div>
-                <i class="fas fa-exclamation-triangle text-6xl text-red-500 mb-4 drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]"></i>
-                <h2 class="text-2xl font-bold text-white mb-1">部分服务出现异常</h2>
-                <p class="text-slate-400 text-sm font-mono">Service Disruption Detected</p>
+                <i class="fas fa-exclamation-triangle text-6xl text-red-500 mb-4 drop-shadow-md dark:drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]"></i>
+                <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-1">部分服务出现异常</h2>
+                <p class="text-gray-500 dark:text-slate-400 text-sm font-mono">Service Disruption Detected</p>
             </div>
         </div>
 
         <!-- 监控列表 -->
-        <div class="grid gap-5">
-            <div v-for="m in monitors" :key="m.id" class="glass-card p-5 rounded-xl hover:bg-slate-800/50 transition duration-300 flex flex-col md:flex-row justify-between items-center group border-l-4" :class="m.status === 'UP' ? 'border-l-green-500' : 'border-l-red-500'">
+        <div v-if="loading" class="text-center py-12">
+            <i class="fas fa-circle-notch fa-spin text-4xl text-green-500"></i>
+            <p class="mt-4 text-slate-500 font-mono">LOADING SYSTEM DATA...</p>
+        </div>
+        
+        <div v-else-if="monitors.length === 0" class="text-center py-12 border border-dashed border-slate-700 rounded-xl">
+            <p class="text-slate-500 font-mono">NO MONITORS CONFIGURED</p>
+        </div>
+
+        <div v-else class="grid gap-4">
+            <div v-for="m in monitors" :key="m.id" class="status-card p-4 md:p-5 rounded-xl hover:shadow-lg dark:hover:bg-slate-800/50 transition duration-300 group border-l-4" :class="m.status === 'UP' ? 'border-l-green-500' : 'border-l-red-500'">
                 
-                <div class="flex items-center gap-5 w-full md:w-auto mb-4 md:mb-0">
-                    <div class="relative">
-                        <div class="w-3 h-3 rounded-full absolute inset-0 animate-ping opacity-75" :class="m.status === 'UP' ? 'bg-green-500' : 'bg-red-500'"></div>
-                        <div class="w-3 h-3 rounded-full relative z-10" :class="m.status === 'UP' ? 'bg-green-500 neon-green' : 'bg-red-500 neon-red'"></div>
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
+                    
+                    <!-- Left Side: Icon, Name, URL -->
+                    <div class="flex items-start gap-3 md:gap-4 min-w-0 w-full md:w-auto">
+                        <!-- Icon -->
+                        <div class="relative shrink-0 w-3 h-3 mt-1.5 md:mt-2">
+                             <div class="w-3 h-3 rounded-full absolute inset-0 animate-ping opacity-75" :class="m.status === 'UP' ? 'bg-green-500' : 'bg-red-500'"></div>
+                             <div class="w-3 h-3 rounded-full relative z-10" :class="m.status === 'UP' ? 'bg-green-500 dark:neon-green' : 'bg-red-500 dark:neon-red'"></div>
+                        </div>
+                        
+                        <!-- Content -->
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between md:justify-start gap-3 mb-1">
+                                <h3 class="font-bold text-lg text-gray-800 dark:text-white tracking-wide truncate">{{ m.name }}</h3>
+                                <!-- Mobile Only Status Badge -->
+                                <div class="md:hidden shrink-0">
+                                     <span class="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider font-mono uppercase border" 
+                                         :class="m.status === 'UP' ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20' : 'bg-red-50 border-red-200 text-red-700 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20'">
+                                        {{ m.status === 'UP' ? 'ON' : 'OFF' }}
+                                     </span>
+                                </div>
+                            </div>
+                            
+                            <a :href="m.url" target="_blank" class="text-gray-400 dark:text-slate-500 text-xs font-mono hover:text-blue-500 dark:hover:text-green-400 transition flex items-center gap-1 truncate block max-w-[200px] md:max-w-md">
+                                {{ m.url }} <i class="fas fa-external-link-alt text-[10px] opacity-50"></i>
+                            </a>
+                        </div>
                     </div>
-                    <div>
-                        <h3 class="font-bold text-lg text-white tracking-wide">{{ m.name }}</h3>
-                        <a :href="m.url" target="_blank" class="text-slate-500 text-xs font-mono hover:text-green-400 transition flex items-center gap-1">
-                            {{ m.url }} <i class="fas fa-external-link-alt text-[10px]"></i>
-                        </a>
-                    </div>
-                </div>
 
-                <!-- 状态指示胶囊 -->
-                <div class="flex flex-col md:flex-row items-end md:items-center gap-4 w-full md:w-auto justify-between md:justify-end">
-                    <!-- 延迟/过期信息 -->
-                    <div class="flex flex-row md:flex-col items-center md:items-end text-xs text-slate-500 font-mono mr-0 md:mr-4 gap-3 md:gap-1">
-                         <!-- 有证书信息显示天数 -->
-                         <div v-if="m.cert_expiry" class="flex items-center gap-1 px-2 py-1 rounded border transition-colors duration-300" :class="getExpiryClass(m.cert_expiry)">
-                            <i class="fas fa-lock text-[10px]"></i> SSL: {{ formatExpiry(m.cert_expiry) }}
+                    <!-- Right Side: Info & Status (Desktop) -->
+                    <div class="flex items-center justify-between md:justify-end gap-4 w-full md:w-auto pl-6 md:pl-0 border-t md:border-t-0 border-gray-100 dark:border-gray-800 pt-3 md:pt-0 mt-1 md:mt-0">
+                         <!-- Info Group -->
+                         <div class="flex items-center gap-3 text-xs text-gray-500 dark:text-slate-500 font-mono">
+                             <!-- SSL Badge -->
+                             <div v-if="m.cert_expiry" class="flex items-center gap-1 px-1.5 py-0.5 rounded border transition-colors duration-300" :class="getExpiryClass(m.cert_expiry)">
+                                <i class="fas fa-lock text-[10px]"></i> {{ formatExpiry(m.cert_expiry) }}
+                             </div>
+                             <div v-else-if="m.status === 'UP'" class="flex items-center gap-1 px-1.5 py-0.5 rounded border border-green-500/30 bg-green-500/10 text-green-600 dark:text-green-400">
+                                <i class="fas fa-shield-alt text-[10px]"></i> OK
+                             </div>
+                             
+                             <!-- Time -->
+                             <div class="opacity-75 whitespace-nowrap">
+                                 {{ formatDate(m.last_check) }}
+                             </div>
                          </div>
-                         <!-- 没证书信息但网站是UP的，显示Secure -->
-                         <div v-else-if="m.status === 'UP'" class="flex items-center gap-1 px-2 py-1 rounded border border-green-500/30 bg-green-500/10 text-green-400">
-                            <i class="fas fa-shield-alt text-[10px]"></i> SSL: OK
-                         </div>
-                         <div class="text-slate-600">{{ formatDate(m.last_check) }}</div>
-                    </div>
 
-                    <div class="px-4 py-1.5 rounded-md text-xs font-bold tracking-wider font-mono uppercase border" 
-                         :class="m.status === 'UP' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'">
-                        {{ m.status === 'UP' ? 'ONLINE' : 'OFFLINE' }}
+                         <!-- Desktop Status Badge -->
+                         <div class="hidden md:block">
+                             <span class="px-3 py-1 rounded-md text-xs font-bold tracking-wider font-mono uppercase border transition-colors" 
+                                 :class="m.status === 'UP' ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20' : 'bg-red-50 border-red-200 text-red-700 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20'">
+                                {{ m.status === 'UP' ? 'ONLINE' : 'OFFLINE' }}
+                             </span>
+                         </div>
                     </div>
                 </div>
             </div>
         </div>
         
         <!-- 底部 -->
-        <div class="mt-16 text-center border-t border-slate-800 pt-8">
-             <a href="/admin" class="inline-flex items-center gap-2 text-slate-600 hover:text-green-400 transition text-sm font-mono group">
+        <div class="mt-16 text-center border-t border-gray-200 dark:border-slate-800 pt-8">
+             <a href="/admin" class="inline-flex items-center gap-2 text-gray-500 dark:text-slate-600 hover:text-blue-600 dark:hover:text-green-400 transition text-sm font-mono group">
                 <i class="fas fa-terminal group-hover:animate-pulse"></i> Admin Access
              </a>
-             <p class="mt-4 text-xs text-slate-700">
+             <p class="mt-4 text-xs text-gray-400 dark:text-slate-700">
                 SYSTEM ID: {{ Math.random().toString(36).substr(2, 9).toUpperCase() }} | CLOUDFLARE EDGE
+             </p>
+             <p class="mt-2 text-xs text-gray-400 dark:text-slate-600 hover:text-gray-600 dark:hover:text-slate-500 transition-colors">
+                &copy; {{ new Date().getFullYear() }} <a href="https://nianshu2022.cn" target="_blank" class="hover:text-blue-500 dark:hover:text-green-400 transition underline decoration-dotted underline-offset-2">念舒</a>. All Rights Reserved.
              </p>
         </div>
     </div>
 
     <script>
         // 你的 Worker 地址
-        const API_BASE = 'https://uptime-worker.2478951652.workers.dev'; 
+        const API_BASE = 'https://uptime-api.nianshu2022.cn'; 
 
         const { createApp, ref, onMounted, computed } = Vue;
 
@@ -140,11 +188,36 @@
             setup() {
                 const monitors = ref([]);
                 const loading = ref(false);
+                const isDark = ref(true);
 
                 const allUp = computed(() => {
                     if (monitors.value.length === 0) return true;
                     return monitors.value.every(m => m.status === 'UP');
                 });
+
+                const toggleTheme = () => {
+                    isDark.value = !isDark.value;
+                    if (isDark.value) {
+                        document.documentElement.classList.add('dark');
+                        localStorage.setItem('theme', 'dark');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                        localStorage.setItem('theme', 'light');
+                    }
+                };
+
+                // 初始化主题
+                const initTheme = () => {
+                    const savedTheme = localStorage.getItem('theme');
+                    if (savedTheme === 'light') {
+                        isDark.value = false;
+                        document.documentElement.classList.remove('dark');
+                    } else {
+                        // 默认 dark
+                        isDark.value = true;
+                        document.documentElement.classList.add('dark');
+                    }
+                };
 
                 const fetchMonitors = async () => {
                     loading.value = true;
@@ -190,25 +263,26 @@
 
                 const getExpiryClass = (dateStr) => {
                     const days = getDaysRemaining(dateStr);
-                    if (days < 0) return 'text-slate-600 border-slate-700 opacity-50'; // 过期但 crt.sh 数据滞后
-                    if (days < 7) return 'text-red-400 font-bold border-red-500/30 bg-red-500/10';
-                    if (days < 30) return 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10';
-                    return 'text-green-400 border-green-500/30 bg-green-500/10';
+                    if (days < 0) return 'text-gray-400 dark:text-slate-600 border-gray-300 dark:border-slate-700 opacity-50'; 
+                    if (days < 7) return 'text-red-600 dark:text-red-400 font-bold border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10';
+                    if (days < 30) return 'text-yellow-600 dark:text-yellow-400 border-yellow-200 dark:border-yellow-500/30 bg-yellow-50 dark:bg-yellow-500/10';
+                    return 'text-green-600 dark:text-green-400 border-green-200 dark:border-green-500/30 bg-green-50 dark:bg-green-500/10';
                 };
 
-                // 在模板里也改一下显示逻辑
-                // 如果 days < 0，显示 "Unknown" 或 "Valid"
                 const formatExpiry = (dateStr) => {
                     const days = getDaysRemaining(dateStr);
-                    if (days < 0) return 'Valid'; // 既然网站是 UP 的，证书肯定是 Valid 的（或者是 crt.sh 没查到新的）
+                    if (days < 0) return 'Valid'; 
                     return `${days}d`;
                 };
 
-                onMounted(fetchMonitors);
-                setInterval(fetchMonitors, 30000);
+                onMounted(() => {
+                    initTheme();
+                    fetchMonitors();
+                    setInterval(fetchMonitors, 30000);
+                });
 
                 return { 
-                    monitors, loading, allUp,
+                    monitors, loading, allUp, isDark, toggleTheme,
                     formatDate, getDaysRemaining, getExpiryClass, formatExpiry
                 };
             }
